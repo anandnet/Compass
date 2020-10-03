@@ -13,21 +13,73 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   AnimController _animController;
-  double direction;
-  bool _hasPermissions = false;
-  LocationPermission permission;
+  double direction = 0;
+
   @override
   void initState() {
     _animController = AnimController(
         animationName: "animation1", min: 0, max: 360, speed: 45);
+
     FlutterCompass.events.listen((event) {
       setState(() {
-        _animController.value = event;
-        //direction = event;
+        if (event == null) {
+          direction = 0;
+          _fetchPermissionStatus();
+        } else {
+          direction = event;
+        }
+        _animController.value = direction;
       });
     });
 
     super.initState();
+  }
+
+  void _getLocationByGPS() {
+    getPositionStream(desiredAccuracy: LocationAccuracy.high, distanceFilter: 0)
+        .listen((Position position) {
+      setState(() {
+        direction = position.heading;
+        _animController.value = direction;
+      });
+    });
+  }
+
+  void _fetchLocationServiceStatus() async {
+    await isLocationServiceEnabled().then((status) {
+      if (status) {
+        setState(() {
+          _getLocationByGPS();
+        });
+      } else {
+        openLocationSettings().then((_status) {
+          _fetchLocationServiceStatus();
+        });
+      }
+    });
+  }
+
+  int breaker = 0;
+  void _fetchPermissionStatus() async {
+    breaker++;
+    await checkPermission().then((status) {
+      if (status == LocationPermission.denied ||
+          status == LocationPermission.deniedForever) {
+        requestPermission().then((value) {
+          if (value == LocationPermission.deniedForever) {
+            openAppSettings();
+            setState(() {});
+          }
+          if (breaker < 5) {
+            _fetchPermissionStatus();
+          }
+        });
+      } else {
+        setState(() {
+          _fetchLocationServiceStatus();
+        });
+      }
+    });
   }
 
   @override
@@ -38,56 +90,52 @@ class _HomeState extends State<Home> {
   @override
   Widget build(BuildContext context) {
     Size screenSize = MediaQuery.of(context).size;
-    if (direction == null) {
-      return _buildPermissionSheet();
-    } else {
-      return Scaffold(
-        body: Container(
-          child: Column(
-            children: <Widget>[
-              SizedBox(
-                height: screenSize.height * .2,
-              ),
-              Container(
-                height: screenSize.height * .5,
-                color: Colors.black,
-                child: Center(
-                    child: Container(
-                  child: FlareActor(
-                    "assets/flare/Compass12.flr",
-                    animation: "animation1",
-                    controller: _animController,
-                  ),
-                )),
-              ),
-              Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Text(
-                        " ${direction.toInt()}\u00B0",
-                        style: TextStyle(fontSize: 40, color: Colors.white),
+    return Scaffold(
+      body: Container(
+        child: Column(
+          children: <Widget>[
+            SizedBox(
+              height: screenSize.height * .2,
+            ),
+            Container(
+              height: screenSize.height * .5,
+              color: Colors.black,
+              child: Center(
+                  child: Container(
+                child: FlareActor(
+                  "assets/flare/Compass12.flr",
+                  animation: "animation1",
+                  controller: _animController,
+                ),
+              )),
+            ),
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Text(
+                      " ${direction.toInt()}\u00B0",
+                      style: TextStyle(fontSize: 40, color: Colors.white),
+                    ),
+                    Center(
+                      child: Text(
+                        _dirString(direction),
+                        style: TextStyle(fontSize: 30, color: Colors.white),
                       ),
-                      Center(
-                        child: Text(
-                          _dirString(direction),
-                          style: TextStyle(fontSize: 30, color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-          color: Colors.black,
+            ),
+          ],
         ),
-      );
-    }
+        color: Colors.black,
+      ),
+    );
   }
 
-  // ignore: missing_return
+// ignore: missing_return
   String _dirString(double dirn) {
     if (dirn >= 0 && dirn <= 22.5) {
       return "North";
@@ -108,62 +156,6 @@ class _HomeState extends State<Home> {
     } else if (dirn > 337.5 && dirn <= 360) {
       return "North";
     }
-  }
-
-  updateLocation() async {
-    getPositionStream(desiredAccuracy: LocationAccuracy.best, distanceFilter: 0)
-        .listen((Position position) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        direction = position.heading;
-      });
-    });
-  }
-
-  Widget _buildPermissionSheet() {
-    return AlertDialog(
-      insetPadding: EdgeInsets.symmetric(vertical: 200,horizontal: 50),
-      title: Text("Info"),
-      content: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(
-              '   It seems like your device doesn\'t have Compass Sensor. Still you can use your GPS to run this app.',
-              style: TextStyle(fontSize: 23,),
-              ),
-            RaisedButton(
-              child: Text('Request Permissions'),
-              onPressed: () async {
-                permission = await requestPermission().then((value) {
-                  _fetchPermissionStatus();
-                });
-              },
-            ),
-            SizedBox(height: 16),
-            RaisedButton(
-              child: Text('Open App Settings'),
-              onPressed: () async {
-                await openLocationSettings().then((opened) {
-                  //
-                });
-              },
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _fetchPermissionStatus() async {
-    permission = await checkPermission().then((status) {
-      print(status);
-      //if (mounted) {
-      //  setState(() => _hasPermissions = status == PermissionStatus.granted);
-      //}
-    });
   }
 }
 
