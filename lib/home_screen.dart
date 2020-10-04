@@ -36,7 +36,7 @@ class _HomeState extends State<Home> {
   }
 
   void _getLocationByGPS() {
-    getPositionStream(desiredAccuracy: LocationAccuracy.high, distanceFilter: 0)
+    getPositionStream(desiredAccuracy: LocationAccuracy.best, distanceFilter: 0)
         .listen((Position position) {
       setState(() {
         direction = position.heading;
