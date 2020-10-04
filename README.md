@@ -1,4 +1,4 @@
-# compass
+# Compass
 
 ![1](demo/demo.gif)
 
