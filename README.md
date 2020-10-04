@@ -1,6 +1,6 @@
 # compass
 
-A new Flutter project.
+![1](demo/demo.gif)
 
 ## Getting Started
 
